@@ -12,10 +12,12 @@ dist
 dist-ssr
 *.local
 
-# Video files (exceed GitHub 100MB limit)
-*.mp4
-*.mp4.mp4
+# Video files
+video1.mp4
+video1.mp4.mp4
 *.webm
+!public/demo-video.mp4
+
 
 # Editor directories and files
 .vscode/*

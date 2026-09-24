@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   Play, 
+  Pause,
   Video, 
   FileText, 
   Upload, 
@@ -10,8 +11,16 @@ import {
   Sparkles,
   Link2,
   FolderUp,
-  Database
+  ChevronRight,
+  ChevronLeft,
+  RotateCcw,
+  Monitor,
+  Flame,
+  MapPin,
+  Sliders,
+  Cpu
 } from 'lucide-react';
+
 
 interface DemoVideoModalProps {
   isOpen: boolean;
@@ -66,14 +75,43 @@ const loadVideoFromDB = async (): Promise<{ blob: Blob; name: string } | null> =
 };
 
 export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'player' | 'script'>('player');
+  const [activeTab, setActiveTab] = useState<'interactive' | 'custom' | 'script'>('interactive');
   const [videoUrl, setVideoUrl] = useState<string>('/demo-video.mp4');
   const [customInputUrl, setCustomInputUrl] = useState<string>('/demo-video.mp4');
   const [isLocalFile, setIsLocalFile] = useState<boolean>(true);
   const [fileName, setFileName] = useState<string>('');
   const [isSaved, setIsSaved] = useState<boolean>(false);
-  const [activeTimestamp, setActiveTimestamp] = useState<number>(1);
+  
+  // Interactive Walkthrough Player State
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [currentSlide, setCurrentSlide] = useState<number>(1);
+  const [progressSec, setProgressSec] = useState<number>(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-advance interactive video walkthrough timer
+  useEffect(() => {
+    let timer: any = null;
+    if (isPlaying) {
+      timer = setInterval(() => {
+        setProgressSec(prev => {
+          if (prev >= 120) {
+            setIsPlaying(false);
+            return 0;
+          }
+          const next = prev + 1;
+          // Auto sync slide step based on seconds
+          if (next < 25) setCurrentSlide(1);
+          else if (next < 50) setCurrentSlide(2);
+          else if (next < 80) setCurrentSlide(3);
+          else if (next < 110) setCurrentSlide(4);
+          else setCurrentSlide(5);
+          return next;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isPlaying]);
 
   // Load saved video from IndexedDB on component mount
   useEffect(() => {
@@ -113,14 +151,13 @@ export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Create instant Object URL
       const fileObjUrl = URL.createObjectURL(file);
       setVideoUrl(fileObjUrl);
       setFileName(file.name);
       setIsLocalFile(true);
       setCustomInputUrl(file.name);
+      setActiveTab('custom');
 
-      // Save binary blob PERMANENTLY to IndexedDB
       await saveVideoToDB(file, file.name);
       localStorage.setItem('straitshift_demo_video_url', fileObjUrl);
       
@@ -148,43 +185,86 @@ export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose 
     setTimeout(() => setIsSaved(false), 3000);
   };
 
-  const scriptSections = [
+  const slidesData = [
     {
       step: 1,
       time: '0:00 - 0:25',
-      title: '1. Executive Problem & Overview Dashboard',
-      screenAction: 'Show Overview Dashboard, highlight red STATUS: CRITICAL banner and 6 KPI cards.',
-      narration: 'What happens to the global economy when 20% of the world\'s oil supply is suddenly frozen overnight? The Strait of Hormuz carries over 20 million barrels of energy daily. Meet StraitShift — an enterprise supply continuity platform built to transform disruption panic into clear executive action. Right from the dashboard, leadership gets immediate visibility: 18 cargoes exposed, 14.2M barrels at risk, and +14.8 days average delay.'
+      title: '1. Executive Overview & Disruption Alert',
+      icon: <Flame className="w-5 h-5 text-red-400" />,
+      sub: 'STATUS: CRITICAL • Strait of Hormuz Blocked',
+      details: [
+        'Exposed Vessels: 18 / 42 Fleet Cargoes',
+        'Volume Exposed: 14.2 Million Barrels',
+        'Cost Impact: +$48.5M Freight Surge',
+        'Avg Delay: +14.8 Days via Cape'
+      ],
+      narration: 'What happens to the global economy when 20% of the world\'s oil supply is suddenly frozen overnight? The Strait of Hormuz carries over 20 million barrels of energy daily. Meet StraitShift — an enterprise supply continuity platform built to transform disruption panic into clear executive action.'
     },
     {
       step: 2,
       time: '0:25 - 0:50',
-      title: '2. Disruption Map & Exposed Cargo Inspection',
-      screenAction: 'Open Disruption Map (red vs cyan lines), then go to Shipments and open VLCC Arabian Titan SS-9041 drawer.',
-      narration: 'Our interactive Global Energy Flow Map visually isolates the blocked Strait of Hormuz in red while actively plotting alternative corridors, including the Cape of Good Hope circumnavigation and Saudi East-West landbridge pipeline. Inspecting exposed cargoes — like the VLCC Arabian Titan — StraitShift calculates transit lag (+14 days), freight cost deltas (+$3.2M), and provides a one-click rerouting order.'
+      title: '2. Global Energy Map & Cargo Reroute',
+      icon: <MapPin className="w-5 h-5 text-cyan-400" />,
+      sub: 'Interactive Routing & Vessel Inspection',
+      details: [
+        'Blocked SOH Corridor (Pulsing Red Line)',
+        'Cape of Good Hope Reroute (Cyan Waypoint)',
+        'Saudi East-West Pipeline (Amber Landbridge)',
+        'Vessel SS-9041 Arabian Titan: +14 Days Lag'
+      ],
+      narration: 'Our interactive Global Energy Flow Map visually isolates the blocked Strait of Hormuz in red while actively plotting alternative corridors, including the Cape of Good Hope circumnavigation and Saudi East-West landbridge pipeline. Inspecting exposed cargoes — like the VLCC Arabian Titan — StraitShift calculates transit lag and provides a one-click rerouting order.'
     },
     {
       step: 3,
       time: '0:50 - 1:20',
       title: '3. 30-Day Scenario Engine & AI Directives',
-      screenAction: 'Run 30-Day Scenario Simulation, show Recharts inventory curves, open Action Center recommendations.',
+      icon: <Sliders className="w-5 h-5 text-purple-400" />,
+      sub: 'Depletion Trajectory & Spot Swaps',
+      details: [
+        '30-Day Disruption Scenario Execution',
+        'Inventory Depletion Trajectory Curves',
+        'StraitShift Intelligence AI Directive #4',
+        'Shift 35% Allocation to Petrobras Atlantic'
+      ],
       narration: 'To plan for what happens next, our 30-day Scenario Engine simulates supply gaps and plots inventory depletion curves over time — contrasting unmitigated stockouts against a StraitShift optimized response. In the Action Center, StraitShift Intelligence generates AI-assisted directives — like shifting 35% of crude allocation to Atlantic basin suppliers, cutting supply risk by up to 78%.'
     },
     {
       step: 4,
       time: '1:20 - 1:50',
-      title: '4. System Architecture & Executive Board Report',
-      screenAction: 'Open "How It Works" Architecture modal, navigate to Reports, click Print / Export PDF.',
+      title: '4. System Architecture & Board Report Export',
+      icon: <Cpu className="w-5 h-5 text-emerald-400" />,
+      sub: '6-Layer Architecture & Board PDF Audit',
+      details: [
+        'AIS Vessel Feeds • SAP ERP • Platts Crude Prices',
+        'Normalized Data Processing & Risk Scoring',
+        'Decoupled Production API Architecture',
+        'One-Click Executive PDF Brief Export'
+      ],
       narration: 'Behind the UI, StraitShift operates on a modular 6-layer architecture ready to ingest live AIS vessel tracking, SAP ERP inventory data, and Platts market pricing. Finally, decision-makers can convert these insights into board-ready audit briefs with a single click, ready for PDF export.'
     },
     {
       step: 5,
       time: '1:50 - 2:00',
       title: '5. Conclusion & Value Proposition',
-      screenAction: 'Return to Overview Dashboard with header tagline visible.',
+      icon: <CheckCircle2 className="w-5 h-5 text-cyan-400" />,
+      sub: 'Disruption → Visibility → Simulation → Action',
+      details: [
+        'Centralized Energy Continuity Control Tower',
+        'Reduces Stockout Penalties by 64%',
+        'Seamless Enterprise SaaS Experience',
+        'Keep Energy Moving When Routes Don\'t'
+      ],
       narration: 'StraitShift moves businesses from disruption to visibility, simulation, and decision — keeping energy moving when critical routes don\'t. Thank you!'
     }
   ];
+
+  const currentSlideObj = slidesData[currentSlide - 1];
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
@@ -192,14 +272,14 @@ export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose 
         {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
-              <Video className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-cyan-500 flex items-center justify-center text-slate-950 font-bold">
+              <Video className="w-5 h-5 text-slate-950" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                StraitShift 2-Minute Executive Walkthrough
+                StraitShift 2-Minute Executive Video Companion
               </h2>
-              <p className="text-xs text-slate-400">Uploaded videos are permanently stored in IndexedDB browser database</p>
+              <p className="text-xs text-slate-400">Permanently embedded 2-minute video presentation & walkthrough player</p>
             </div>
           </div>
 
@@ -208,44 +288,171 @@ export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose 
           </button>
         </div>
 
-        {/* Tab Toolbar */}
+        {/* Tab Switcher */}
         <div className="bg-slate-950/70 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => setActiveTab('player')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
-                activeTab === 'player'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+              onClick={() => setActiveTab('interactive')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-colors ${
+                activeTab === 'interactive'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                   : 'bg-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Play className="w-3.5 h-3.5 fill-cyan-400" />
-              <span>Video Player</span>
+              <Monitor className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Interactive Walkthrough Player</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('custom')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-colors ${
+                activeTab === 'custom'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Upload className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Upload Video / URL</span>
             </button>
 
             <button
               onClick={() => setActiveTab('script')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-colors ${
                 activeTab === 'script'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                   : 'bg-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
               <FileText className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Presentation Script & Timestamps</span>
+              <span>Presentation Script</span>
             </button>
           </div>
 
-          <span className="text-[10px] text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700 font-mono">
-            Duration: 02:00
+          <span className="text-[10px] text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700 font-mono font-bold">
+            ⏱️ {formatTime(progressSec)} / 02:00
           </span>
         </div>
 
         {/* Tab Content */}
         <div className="p-5 overflow-y-auto space-y-5 flex-1">
-          {activeTab === 'player' && (
+          {/* TAB 1: PERMANENT INTERACTIVE WALKTHROUGH PLAYER */}
+          {activeTab === 'interactive' && (
             <div className="space-y-4">
-              {/* Responsive Video Container */}
+              {/* Animated Slide Screen Canvas */}
+              <div className="relative aspect-video w-full bg-slate-950 border-2 border-cyan-500/40 rounded-2xl overflow-hidden shadow-2xl p-6 flex flex-col justify-between bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center space-x-3">
+                    {currentSlideObj.icon}
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-100">{currentSlideObj.title}</h3>
+                      <span className="text-[11px] text-cyan-400 font-mono">{currentSlideObj.sub}</span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono font-bold bg-cyan-500/10 text-cyan-300 px-3 py-1 rounded-full border border-cyan-500/30">
+                    Step {currentSlide} of 5
+                  </span>
+                </div>
+
+                {/* Body Metrics Grid */}
+                <div className="grid grid-cols-2 gap-3 my-3">
+                  {currentSlideObj.details.map((d, idx) => (
+                    <div key={idx} className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex items-center space-x-2">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
+                      <span className="text-xs font-semibold text-slate-200">{d}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Subtitles / Live Narration Speech Box */}
+                <div className="bg-slate-900 border border-cyan-500/30 p-3.5 rounded-xl space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-cyan-400 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Live Voiceover Subtitles:
+                  </span>
+                  <p className="text-xs text-slate-200 leading-relaxed font-mono">
+                    "{currentSlideObj.narration}"
+                  </p>
+                </div>
+              </div>
+
+              {/* Player Controls Bar */}
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
+                {/* Progress Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] text-slate-400 font-mono">
+                    <span>{formatTime(progressSec)}</span>
+                    <span className="text-cyan-400 font-bold">{currentSlideObj.title.split('.')[1]}</span>
+                    <span>02:00</span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-300"
+                      style={{ width: `${(progressSec / 120) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Play Buttons */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setIsPlaying(!isPlaying)}
+                      className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center space-x-2"
+                    >
+                      {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-slate-950" />}
+                      <span>{isPlaying ? 'Pause Presentation' : 'Play 2-Min Video'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setProgressSec(0);
+                        setCurrentSlide(1);
+                        setIsPlaying(false);
+                      }}
+                      className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-colors"
+                      title="Restart Video"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => {
+                        const prev = Math.max(1, currentSlide - 1);
+                        setCurrentSlide(prev);
+                        setProgressSec((prev - 1) * 24);
+                      }}
+                      disabled={currentSlide === 1}
+                      className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 rounded-xl border border-slate-700 transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    <span className="text-xs font-mono font-bold text-slate-300 px-2">
+                      Slide {currentSlide} / 5
+                    </span>
+
+                    <button
+                      onClick={() => {
+                        const next = Math.min(5, currentSlide + 1);
+                        setCurrentSlide(next);
+                        setProgressSec((next - 1) * 24);
+                      }}
+                      disabled={currentSlide === 5}
+                      className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 rounded-xl border border-slate-700 transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: CUSTOM VIDEO UPLOAD / URL PLAYER */}
+          {activeTab === 'custom' && (
+            <div className="space-y-4">
               <div className="relative aspect-video w-full bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-2xl flex items-center justify-center">
                 {isLocalFile ? (
                   <video 
@@ -267,13 +474,11 @@ export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose 
                 )}
               </div>
 
-              {/* UPLOAD LOCAL VIDEO FILE + LINK EMBED SECTION */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Upload Local MP4 File */}
                 <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                      <FolderUp className="w-4 h-4 text-cyan-400" /> Upload MP4 (Saved Permanently)
+                      <FolderUp className="w-4 h-4 text-cyan-400" /> Upload MP4 Video File
                     </span>
                     {fileName && (
                       <span className="text-[10px] text-cyan-400 font-mono font-bold truncate max-w-[120px]">
@@ -282,7 +487,7 @@ export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose 
                     )}
                   </div>
                   <p className="text-[11px] text-slate-400 leading-tight">
-                    Uploaded video is saved inside browser IndexedDB storage and survives server reloads.
+                    Upload a local `.mp4` file — saved in browser IndexedDB database.
                   </p>
 
                   <input
@@ -303,7 +508,6 @@ export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose 
                   </button>
                 </div>
 
-                {/* Paste Loom / YouTube URL */}
                 <form onSubmit={handleSaveUrl} className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
@@ -316,7 +520,7 @@ export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose 
                     )}
                   </div>
                   <p className="text-[11px] text-slate-400 leading-tight">
-                    Or paste your Loom or YouTube video link to embed your demo.
+                    Or paste your Loom or YouTube video link to embed your video.
                   </p>
 
                   <div className="flex items-center space-x-2">
@@ -337,63 +541,39 @@ export const DemoVideoModal: React.FC<DemoVideoModalProps> = ({ isOpen, onClose 
                   </div>
                 </form>
               </div>
-
-              {/* Permanent Storage Status & Instructions */}
-              <div className="bg-slate-950/80 border border-slate-800 p-3.5 rounded-xl space-y-1 text-[11px] text-slate-400">
-                <span className="font-bold text-cyan-400 flex items-center gap-1">
-                  <Database className="w-3.5 h-3.5 text-cyan-400" /> Permanent File Persistence Notice:
-                </span>
-                <p>
-                  1. <strong>IndexedDB Enabled</strong>: Uploaded MP4 videos are saved binary blobs inside browser database storage, so restarting localhost will <strong>NOT</strong> erase your video.<br />
-                  2. <strong>Vercel Bundle Tip</strong>: For permanent Vercel deployment across all devices, copy your video file to <code className="bg-slate-900 px-1.5 py-0.5 rounded text-slate-200 font-mono">straitshift/public/demo-video.mp4</code>.
-                </p>
-              </div>
             </div>
           )}
 
+          {/* TAB 3: SCRIPT */}
           {activeTab === 'script' && (
-            <div className="space-y-4">
-              <div className="bg-cyan-500/10 border border-cyan-500/30 p-3.5 rounded-xl flex items-center justify-between text-xs text-cyan-300">
-                <div className="flex items-center space-x-2">
-                  <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
-                  <span>Use these timestamps and screen action guides while recording your video.</span>
-                </div>
-              </div>
+            <div className="space-y-3">
+              {slidesData.map(sec => (
+                <div
+                  key={sec.step}
+                  onClick={() => setCurrentSlide(sec.step)}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                    currentSlide === sec.step
+                      ? 'bg-slate-950 border-cyan-500/50 shadow-lg'
+                      : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
+                    <span className="text-xs font-bold text-slate-100">{sec.title}</span>
+                    <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30">
+                      ⏱️ {sec.time}
+                    </span>
+                  </div>
 
-              <div className="space-y-3">
-                {scriptSections.map(sec => (
-                  <div
-                    key={sec.step}
-                    onClick={() => setActiveTimestamp(sec.step)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer ${
-                      activeTimestamp === sec.step
-                        ? 'bg-slate-950 border-cyan-500/50 shadow-lg'
-                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
-                      <span className="text-xs font-bold text-slate-100">{sec.title}</span>
-                      <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30">
-                        ⏱️ {sec.time}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-xs">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">🎥 Screen Action:</span>
-                        <span className="text-slate-300 font-medium">{sec.screenAction}</span>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-cyan-400 block">🎙️ Voiceover Speech:</span>
-                        <p className="text-slate-200 leading-relaxed font-mono bg-slate-900/80 p-2.5 rounded-lg border border-slate-800/80 text-[11px]">
-                          "{sec.narration}"
-                        </p>
-                      </div>
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-cyan-400 block">🎙️ Voiceover Speech:</span>
+                      <p className="text-slate-200 leading-relaxed font-mono bg-slate-900/80 p-2.5 rounded-lg border border-slate-800/80 text-[11px]">
+                        "{sec.narration}"
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
