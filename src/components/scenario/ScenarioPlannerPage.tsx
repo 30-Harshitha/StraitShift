@@ -253,7 +253,7 @@ export const ScenarioPlannerPage: React.FC<ScenarioPlannerPageProps> = ({ onNavi
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={results.depletionTrajectory}>
-                <XAxis dataKey="day" stroke="#64748b" fontSize={10} tickFormatter={(d) => `Day ${d}`} />
+                <XAxis dataKey="day" stroke="#64748b" fontSize={10} tickFormatter={(d: any) => `Day ${d}`} />
                 <YAxis stroke="#64748b" fontSize={10} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }}
